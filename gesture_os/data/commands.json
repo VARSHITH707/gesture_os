@@ -1,0 +1,12 @@
+{
+  "open chrome": {"action": "launch", "target": "google-chrome"},
+  "open terminal": {"action": "launch", "target": "gnome-terminal"},
+  "open notepad": {"action": "launch", "target": "notepad.exe"},
+  "close window": {"action": "hotkey", "keys": ["alt", "F4"]},
+  "next tab": {"action": "hotkey", "keys": ["ctrl", "tab"]},
+  "close tab": {"action": "hotkey", "keys": ["ctrl", "w"]},
+  "mute volume": {"action": "hotkey", "keys": ["volumemute"]},
+  "volume up": {"action": "hotkey", "keys": ["volumeup"]},
+  "volume down": {"action": "hotkey", "keys": ["volumedown"]},
+  "minimize window": {"action": "hotkey", "keys": ["super", "down"]}
+}
