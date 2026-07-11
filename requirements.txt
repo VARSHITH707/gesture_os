@@ -1,0 +1,12 @@
+# Core gesture-control path (main.py)
+mediapipe
+opencv-python
+numpy
+pynput
+pystray
+Pillow
+
+# Optional voice layer (audio/) — not required for gesture control
+# pyaudio
+# torch
+# vosk
