@@ -19,18 +19,26 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Precomputed landmark index constants (evaluated once at import time)
 # ---------------------------------------------------------------------------
+LM_WRIST       = 0
 LM_THUMB_TIP   = 4
+LM_INDEX_MCP   = 5
 LM_INDEX_PIP   = 6
 LM_INDEX_TIP   = 8
+LM_MIDDLE_MCP  = 9
 LM_MIDDLE_PIP  = 10
 LM_MIDDLE_TIP  = 12
+LM_RING_MCP    = 13
 LM_RING_PIP    = 14
 LM_RING_TIP    = 16
+LM_PINKY_MCP   = 17
 LM_PINKY_PIP   = 18
 LM_PINKY_TIP   = 20
 
 _TIPS = (LM_INDEX_TIP, LM_MIDDLE_TIP, LM_RING_TIP, LM_PINKY_TIP)
 _PIPS = (LM_INDEX_PIP, LM_MIDDLE_PIP, LM_RING_PIP, LM_PINKY_PIP)
+_MCPS = (LM_INDEX_MCP, LM_MIDDLE_MCP, LM_RING_MCP, LM_PINKY_MCP)
+
+MIN_HAND_SIZE = 1e-4  # floor to avoid divide-by-zero on degenerate landmark input
 
 
 # ---------------------------------------------------------------------------
@@ -43,8 +51,8 @@ class GestureFeatures:
     index_tip_x: float
     index_tip_y: float
     scroll_ref_y: float          # average y of index+middle tips for scroll
-    thumb_index_dist: float
-    thumb_middle_dist: float
+    thumb_index_dist: float      # hand-size-normalized ratio, not a raw frame distance
+    thumb_middle_dist: float     # hand-size-normalized ratio, not a raw frame distance
     is_fist: bool
     is_open_palm: bool
     is_scroll_pose: bool
@@ -53,6 +61,7 @@ class GestureFeatures:
     is_wispr_pinch: bool         # thumb-middle only (index NOT pinching)
     is_three_finger_pinch: bool  # both index AND middle close to thumb
     timestamp: float
+    hand_size: float = 0.2       # wrist-to-middle-MCP distance; the normalization reference for the ratios above
 
 
 def extract_features(
@@ -67,14 +76,32 @@ def extract_features(
         dy = float(landmarks[a, 1] - landmarks[b, 1])
         return (dx * dx + dy * dy) ** 0.5
 
-    ti_dist = _dist2d(LM_THUMB_TIP, LM_INDEX_TIP)
-    tm_dist = _dist2d(LM_THUMB_TIP, LM_MIDDLE_TIP)
+    # Hand-size reference (wrist -> middle MCP), same convention as AirBench's
+    # hands.js. Every distance below is divided by this, so pinch/fist/open
+    # thresholds mean the same thing whether the hand is close to the camera
+    # or far from it — a fixed frame-space distance only ever worked at one
+    # specific hand-to-camera distance.
+    hand_size = max(_dist2d(LM_WRIST, LM_MIDDLE_MCP), MIN_HAND_SIZE)
 
-    # Finger extension: tip.y < pip.y (y increases downward in image coords)
-    ext = [
-        float(landmarks[t, 1]) < float(landmarks[p, 1])
-        for t, p in zip(_TIPS, _PIPS)
-    ]
+    ti_dist = _dist2d(LM_THUMB_TIP, LM_INDEX_TIP) / hand_size
+    tm_dist = _dist2d(LM_THUMB_TIP, LM_MIDDLE_TIP) / hand_size
+
+    # Per-finger extension ratio: tip-to-MCP distance over hand size — a real
+    # geometric curl measurement, robust to hand rotation/tilt. Replaces the
+    # old `tip.y < pip.y` screen-space heuristic, which only worked when the
+    # hand was held upright facing the camera (ported from AirBench's
+    # tip-to-MCP extension metric; same landmark model, same reasoning).
+    #
+    # Aggregation stays count-based (not averaged) on purpose: this app has a
+    # "pointing" pose (index extended, other 3 curled) that must read as
+    # neither a fist nor an open palm, and an average can't tell "2 of 4
+    # extended" (scroll) apart from "all 4 partially extended" the way a
+    # per-finger count threshold can. AirBench doesn't have this ambiguity
+    # (no pointing-only pose, and its fist check excludes index entirely) so
+    # its average/exclusion approach doesn't transfer as-is — only the
+    # underlying distance metric does.
+    ext_ratio = [_dist2d(t, m) / hand_size for t, m in zip(_TIPS, _MCPS)]
+    ext = [r > cfg.finger_extend_ratio for r in ext_ratio]
     n_ext = sum(ext)
 
     is_fist = (n_ext == 0)
@@ -103,6 +130,7 @@ def extract_features(
         index_tip_x=float(landmarks[LM_INDEX_TIP, 0]),
         index_tip_y=float(landmarks[LM_INDEX_TIP, 1]),
         scroll_ref_y=scroll_ref,
+        hand_size=hand_size,
         thumb_index_dist=ti_dist,
         thumb_middle_dist=tm_dist,
         is_fist=is_fist,

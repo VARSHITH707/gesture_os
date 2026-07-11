@@ -37,8 +37,8 @@ def _idle_feat(now: float = 0.0) -> GestureFeatures:
     return GestureFeatures(
         index_tip_x=0.5, index_tip_y=0.5,
         scroll_ref_y=0.5,
-        thumb_index_dist=0.15,   # well above pinch threshold
-        thumb_middle_dist=0.15,
+        thumb_index_dist=0.9,   # well above pinch_exit (hand-size ratio, not a raw frame distance)
+        thumb_middle_dist=0.9,
         is_fist=False, is_open_palm=False, is_scroll_pose=False,
         is_scroll_shape=False,
         is_index_pinch=False, is_wispr_pinch=False, is_three_finger_pinch=False,

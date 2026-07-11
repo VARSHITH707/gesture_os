@@ -310,7 +310,7 @@ class GestureApp:
             return
         label = f"Mode:{self._fsm.mode.value}  FPS:{self._fps:.1f}"
         if feat:
-            label += f"  pinch:{feat.thumb_index_dist:.3f}"
+            label += f"  pinch:{feat.thumb_index_dist:.3f}  wispr:{feat.thumb_middle_dist:.3f}"
         cv2.putText(frame, label, (10, 25),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
         cv2.imshow("GestureOS Debug", frame)
